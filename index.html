@@ -177,6 +177,20 @@ input:focus { border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(232,160,6
  <h1>AOL Satsang Signup</h1>
   <p>Art of Living · Washington DC · Maryland · Virginia</p>
 </header>
+  <div style="background: #3A2510; padding: 0.5rem 1.2rem; display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; align-items: center;">
+  <div style="display: flex; align-items: center; gap: 6px;">
+    <div style="width: 11px; height: 11px; border-radius: 3px; background: #F5DFA8; border: 1px solid #C8923A; flex-shrink: 0;"></div>
+    <span style="font-size: 0.72rem; color: #F5C878;">Available</span>
+  </div>
+  <div style="display: flex; align-items: center; gap: 6px;">
+    <div style="width: 11px; height: 11px; border-radius: 3px; background: #C8603A; flex-shrink: 0;"></div>
+    <span style="font-size: 0.72rem; color: #F5C878;">Booked</span>
+  </div>
+  <div style="display: flex; align-items: center; gap: 6px;">
+    <div style="width: 11px; height: 11px; border-radius: 3px; background: #B8CCE8; border: 1.5px solid #4A74A8; flex-shrink: 0;"></div>
+    <span style="font-size: 0.72rem; color: #F5C878;">Featured Program</span>
+  </div>
+</div>
 
 <main class="main">
 
@@ -208,11 +222,7 @@ input:focus { border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(232,160,6
         <div class="avail-overlay-sub">Please wait a moment</div>
       </div>
     </div>
-    <div class="legend">
-      <div class="leg-item"><div class="leg-dot" style="background:#F5DFA8;border:1px solid #C8923A;"></div> Available</div>
-      <div class="leg-item"><div class="leg-dot" style="background:#C8603A;"></div> Booked</div>
-      <div class="leg-item"><div class="leg-dot" style="background:#B8CCE8;border:1.5px solid #4A74A8;"></div> Featured Program</div>
-    </div>
+
   </div>
 
   <div class="card" id="form-card" style="display:none;">
