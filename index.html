@@ -246,7 +246,7 @@ input:focus { border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(232,160,6
     </div>
     <div class="form-row full">
       <div class="form-group">
-        <label class="field-label" for="f-email">Email <span style="font-weight:300;text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <label class="field-label" for="f-email">Email *</label>
         <input type="email" id="f-email">
       </div>
     </div>
@@ -573,7 +573,8 @@ function chkBook() {
   const ok = selDate && selTime &&
     document.getElementById('f-name').value.trim() &&
     document.getElementById('f-phone').value.trim() &&
-    document.getElementById('f-area').value.trim();
+    document.getElementById('f-area').value.trim() &&
+    document.getElementById('f-email').value.trim();
   document.getElementById('book-btn').disabled = !ok;
 }
 
@@ -581,7 +582,7 @@ function chkBook() {
 async function submitBook() {
   const btn = document.getElementById('book-btn');
   btn.disabled = true;
-  btn.textContent = 'Sending… 🙏';
+  btn.textContent = 'Sending…';
 
   const name        = document.getElementById('f-name').value.trim();
   const phone       = document.getElementById('f-phone').value.trim();
@@ -609,7 +610,7 @@ async function submitBook() {
     console.warn('Post failed', e);
   }
 
-  btn.textContent = '🙏  Satsang Signup';
+  btn.textContent = 'Satsang Signup';
 
   if (status === 'duplicate') {
     btn.disabled = false;
