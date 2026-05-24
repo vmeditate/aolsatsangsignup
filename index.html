@@ -645,10 +645,10 @@ async function submitBook() {
 function shareWA() {
   const { name, dateDisplay, time, area } = lastBooking;
   const msg = encodeURIComponent(
-    '🪷 AOL Satsang Signup — DMV\n\n' +
+    'AOL Satsang Signup — DMV\n\n' +
     'I just signed up for Satsang!\n' +
     'Date: ' + dateDisplay + '\nTime: ' + time + '\nArea: ' + area +
-    '\n\nJoin us — sign up: https://vmeditate.github.io/aolsatsangsignup\n\nJai Gurudev! 🙏'
+    '\n\nJoin us — sign up: https://vmeditate.github.io/aolsatsangsignup\n\nJai Gurudev!'
   );
   window.open('https://wa.me/?text=' + msg);
 }
