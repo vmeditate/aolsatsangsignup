@@ -247,7 +247,7 @@ input:focus { border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(232,160,6
     <div class="form-row full">
       <div class="form-group">
         <label class="field-label" for="f-email">Email *</label>
-        <input type="email" id="f-email">
+        <input type="email" id="f-email" oninput="chkBook()">
       </div>
     </div>
     <div class="form-row full">
@@ -263,7 +263,7 @@ input:focus { border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(232,160,6
       </div>
     </div>
     <button class="btn-primary" id="book-btn" onclick="submitBook()" disabled>
-      🙏 &nbsp;Satsang Signup
+      Satsang Signup
     </button>
   </div>
 
