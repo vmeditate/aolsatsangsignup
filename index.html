@@ -199,6 +199,9 @@ font-family: 'Jost', sans-serif;
 .dm-value { font-size: 1rem; font-weight: 400; color: var(--ink); line-height: 1.5; overflow-wrap: anywhere; }
 .dm-value a { color: var(--warm-blue); text-decoration: underline; }
 .dm-done { margin-top: 0.4rem; }
+.dm-rsvp { display: block; text-align: center; text-decoration: none; margin-top: 0.4rem; }
+.btn-primary.dm-done { background: var(--cream); color: var(--earth-dark); border: 1px solid var(--border-strong); }
+.btn-primary.dm-done:hover { background: var(--cream-dark); }
 @media (max-width: 600px) {
 .dm-backdrop { align-items: flex-end; padding: 0; }
 .dm-sheet {
@@ -488,7 +491,8 @@ async function fetchData() {
         phone: String(row.phone || '').trim(),
         area:  String(row.area  || '').trim(),
         time:  String(row.time  || '').trim(),
-        notes: String(row.notes || '').trim()
+        notes: String(row.notes || '').trim(),
+        rsvp:  String(row.rsvp  || '').trim()
       };
     });
 
@@ -756,6 +760,20 @@ function appendLinkedText(el, text) {
   if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
 }
 
+// Accepts only real web links. "forms.gle/abc" is fixed up to https; anything else (text, javascript:, etc.) is ignored.
+function cleanRsvpUrl(v) {
+  const s = String(v || '').trim();
+  if (!s || /\s/.test(s)) return '';
+  let cand = '';
+  if (/^https?:\/\//i.test(s)) cand = s;
+  else if (/^[^\s\/:]+\.[^\s]+$/.test(s)) cand = 'https://' + s;
+  else return '';
+  try {
+    const u = new URL(cand);
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : '';
+  } catch (e) { return ''; }
+}
+
 function dmRow(label, fill) {
   const row = document.createElement('div');
   row.className = 'dm-row';
@@ -785,6 +803,17 @@ function openDetails(date, trigger) {
     if (info.name)  body.appendChild(dmRow('Hosted by', function(v) { v.textContent = info.name; }));
     if (info.phone) body.appendChild(dmRow('Phone',     function(v) { v.textContent = formatPhone(info.phone); }));
     if (info.notes) body.appendChild(dmRow('Notes',     function(v) { appendLinkedText(v, info.notes); }));
+    // Shown only when the sheet's "rsvpform" column has a valid link for this date
+    const rsvpUrl = cleanRsvpUrl(info.rsvp);
+    if (rsvpUrl) {
+      const a = document.createElement('a');
+      a.className = 'btn-primary dm-rsvp';
+      a.href = rsvpUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = 'RSVP here';
+      body.appendChild(a);
+    }
   }
 
   modalReturnFocus = trigger || null;
@@ -932,7 +961,7 @@ async function submitBook() {
   // Mark locally (email is intentionally not kept for display)
   bookedKeys.add(dateKey(selDate));
   bookedWeeks.add(fridayKey(selDate));
-  detailsMap[dateKey(selDate)] = { name: name, phone: phone, area: area, time: timeStr, notes: notes };
+  detailsMap[dateKey(selDate)] = { name: name, phone: phone, area: area, time: timeStr, notes: notes, rsvp: '' };
   selDate = null; selTime = null;
   renderCal();
 
