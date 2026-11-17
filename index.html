@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AOL Satsang Schedule</title>
+<meta name="description" content="Find a Satsang near you, or reserve a date to host one. Art of Living · Washington DC · Maryland · Virginia">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Art of Living">
+<meta property="og:title" content="AOL Satsang Schedule">
+<meta property="og:description" content="Find a Satsang near you, or reserve a date to host one.">
+<meta property="og:url" content="https://vmeditate.github.io/aolsatsangsignup/">
+<meta property="og:image" content="https://vmeditate.github.io/aolsatsangsignup/share-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AOL Satsang Schedule - The Art of Living, Washington DC, Maryland, Virginia">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AOL Satsang Schedule">
+<meta name="twitter:description" content="Find a Satsang near you, or reserve a date to host one.">
+<meta name="twitter:image" content="https://vmeditate.github.io/aolsatsangsignup/share-image.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -136,6 +151,11 @@ word-break: break-word;
 .cal-band-nums { display: flex; font-size: 0.8rem; font-weight: 400; line-height: 1; }
 .cal-band-nums span { flex: 1 1 0; text-align: center; }
 .cal-band-label { font-family: 'Jost', sans-serif; font-size: 11px; font-weight: 500; line-height: 1.1; text-align: center; margin-top: 3px; padding: 0 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.cal-band-link, .cal-cell.event.cal-event-link { cursor: pointer; }
+a.cal-band, a.cal-cell.event { text-decoration: none; }
+.cal-band-link:hover, .cal-cell.event.cal-event-link:hover { background: #A9C1E3; }
+.cal-band-link:focus-visible, .cal-event-link:focus-visible { outline: 3px solid var(--earth-dark); outline-offset: 2px; }
+.cal-band-link .cal-band-label, .cal-event-link .cal-label { text-decoration: underline; }
 .cal-hint { display: none; text-align: center; font-size: 0.72rem; color: var(--muted); margin-top: 0.75rem; letter-spacing: 0.03em; }
 /* ── LEGEND ── */
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 0.85rem; }
@@ -386,6 +406,7 @@ let bookedKeys = new Set();
 let bookedWeeks = new Set();
 let detailsMap = {};   // dateKey -> { name, phone, area, time, notes } for reserved dates
 let scheduleMap = {};
+let eventUrlByLabel = {};   // normalised event name -> first link found for it in the Schedule tab
 let lockedMonths = new Set();
 let alternateAnchors = []; // Friday dates that anchor biweekly availability
 let selDate = null;
@@ -518,6 +539,7 @@ async function fetchData() {
     });
 
     scheduleMap = {};
+    eventUrlByLabel = {};
     lockedMonths = new Set();
     alternateAnchors = [];
 
@@ -553,10 +575,15 @@ async function fetchData() {
         return; // Resolved at render/check time, not via scheduleMap
       }
 
+      const entryType = label.toLowerCase() === 'inactive' ? 'inactive' : (label ? 'event' : 'inactive');
+      const entryUrl = entryType === 'event' ? cleanWebUrl(row.url) : '';
       scheduleMap[dateKey(d)] = {
-        type: label.toLowerCase() === 'inactive' ? 'inactive' : (label ? 'event' : 'inactive'),
-        label: label.toLowerCase() === 'inactive' ? '' : label
+        type: entryType,
+        label: label.toLowerCase() === 'inactive' ? '' : label,
+        url: entryUrl
       };
+      // Remember the first link given for each event name, so one link on any row covers the whole event
+      if (entryUrl && !eventUrlByLabel[normLabel(label)]) eventUrlByLabel[normLabel(label)] = entryUrl;
     });
 
     // Safety pass: remove any locked-month dates that slipped into scheduleMap
@@ -654,15 +681,37 @@ function normLabel(s) {
   return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+// Turns a single featured-event cell into a link to the event page
+function toEventLink(cell, url, label, date) {
+  const a = document.createElement('a');
+  a.className = cell.className + ' cal-event-link';
+  while (cell.firstChild) a.appendChild(cell.firstChild);
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.title = label;
+  a.setAttribute('aria-label', label + ', ' + fmtDisplay(date) + '. Opens event details in a new tab.');
+  return a;
+}
+
 // One joined band for several consecutive days of the same featured event (label shown once)
 function makeBand(seg) {
-  const band = document.createElement('div');
-  band.className = 'cal-band s' + seg.len;
+  const band = document.createElement(seg.url ? 'a' : 'div');
+  band.className = 'cal-band s' + seg.len + (seg.url ? ' cal-band-link' : '');
   band.title = seg.label;
   const startDt = new Date(viewYear, viewMonth, seg.day);
   const endDt = new Date(viewYear, viewMonth, seg.day + seg.len - 1);
-  band.setAttribute('role', 'img');
-  band.setAttribute('aria-label', seg.label + ', ' + fmtDisplay(startDt) + ' to ' + fmtDisplay(endDt));
+  const rangeText = seg.label + ', ' + fmtDisplay(startDt) + ' to ' + fmtDisplay(endDt);
+  if (seg.url) {
+    // Event has a link in the Schedule tab: the whole band opens the event page
+    band.href = seg.url;
+    band.target = '_blank';
+    band.rel = 'noopener noreferrer';
+    band.setAttribute('aria-label', rangeText + '. Opens event details in a new tab.');
+  } else {
+    band.setAttribute('role', 'img');
+    band.setAttribute('aria-label', rangeText);
+  }
   const nums = document.createElement('div');
   nums.className = 'cal-band-nums';
   for (let i = 0; i < seg.len; i++) {
@@ -712,7 +761,13 @@ function renderCal() {
       if (evKey(day + len) !== k) break;
       len++;
     }
-    segByDay[day] = { day: day, len: len, label: scheduleMap[dateKey(new Date(viewYear, viewMonth, day))].label };
+    // Link for the band: first link among its days, else any link given for the same event name
+    let segUrl = '';
+    for (let i = 0; i < len && !segUrl; i++) {
+      segUrl = scheduleMap[dateKey(new Date(viewYear, viewMonth, day + i))].url || '';
+    }
+    segUrl = segUrl || eventUrlByLabel[k] || '';
+    segByDay[day] = { day: day, len: len, label: scheduleMap[dateKey(new Date(viewYear, viewMonth, day))].label, url: segUrl };
     if (len > 1) bandKeys[k] = true;
     day += len;
   }
@@ -807,6 +862,12 @@ function renderCal() {
       bookedShown++;
     }
 
+    // A single featured-event day with a link becomes clickable
+    if (el.classList.contains('event')) {
+      const evUrl = (schedEntry && schedEntry.url) || eventUrlByLabel[normLabel(schedEntry && schedEntry.label)] || '';
+      if (evUrl) el = toEventLink(el, evUrl, schedEntry.label, thisDate);
+    }
+
     grid.appendChild(el);
   }
 
@@ -843,8 +904,8 @@ function appendLinkedText(el, text) {
   if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
 }
 
-// Accepts only real web links. "forms.gle/abc" is fixed up to https; anything else (text, javascript:, etc.) is ignored.
-function cleanRsvpUrl(v) {
+// Accepts only real web links (RSVP forms, event pages). "forms.gle/abc" is fixed up to https; anything else (text, javascript:, etc.) is ignored.
+function cleanWebUrl(v) {
   const s = String(v || '').trim();
   if (!s || /\s/.test(s)) return '';
   let cand = '';
@@ -879,7 +940,7 @@ function fillDetails(container, info) {
   if (info.phone) container.appendChild(dmRow('Phone',     function(v) { v.textContent = formatPhone(info.phone); }));
   if (info.notes) container.appendChild(dmRow('Notes',     function(v) { appendLinkedText(v, info.notes); }));
   // Shown only when the sheet's "rsvpform" column has a valid link for this date
-  const rsvpUrl = cleanRsvpUrl(info.rsvp);
+  const rsvpUrl = cleanWebUrl(info.rsvp);
   if (rsvpUrl) {
     const a = document.createElement('a');
     a.className = 'btn-primary dm-rsvp';
