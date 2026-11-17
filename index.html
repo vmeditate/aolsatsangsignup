@@ -174,7 +174,7 @@ transition: opacity 0.2s ease, visibility 0.2s ease;
 .dm-backdrop.open { opacity: 1; visibility: visible; }
 .dm-sheet {
 position: relative; width: 100%; max-width: 400px;
-max-height: 85vh; max-height: 85dvh; overflow-y: auto;
+max-height: 85vh; max-height: 85dvh; display: flex; flex-direction: column; overflow: hidden;
 background: var(--white); border: 1px solid var(--border);
 border-radius: 16px; padding: 1.6rem 1.5rem 1.4rem;
 box-shadow: 0 12px 48px rgba(44,31,14,0.28);
@@ -198,7 +198,21 @@ font-family: 'Jost', sans-serif;
 .dm-label { font-size: 0.74rem; font-weight: 500; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 0.15rem; }
 .dm-value { font-size: 1rem; font-weight: 400; color: var(--ink); line-height: 1.5; overflow-wrap: anywhere; }
 .dm-value a { color: var(--warm-blue); text-decoration: underline; }
-.dm-done { margin-top: 0.4rem; }
+.dm-done { margin-top: 0.4rem; flex: 0 0 auto; }
+#dm-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.dm-empty { font-size: 0.95rem; color: var(--ink-mid); line-height: 1.6; margin-bottom: 0.9rem; }
+/* Upcoming-satsangs list inside the popup */
+.dm-entry { padding-top: 1rem; margin-top: 1rem; border-top: 0.5px solid var(--border-strong); }
+.dm-entry:first-child { padding-top: 0; margin-top: 0; border-top: none; }
+.dm-date { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 500; color: var(--earth-dark); line-height: 1.2; margin-bottom: 0.55rem; }
+.dm-list .dm-row { display: grid; grid-template-columns: 5.2rem minmax(0, 1fr); gap: 0.5rem; margin-bottom: 0.4rem; }
+.dm-list .dm-label { margin: 0; padding-top: 0.2rem; }
+.dm-list .dm-rsvp { margin-top: 0.75rem; padding: 0.6rem; }
+/* "View upcoming satsangs" button in the top bar */
+.up-wrap { flex: 0 0 100%; display: flex; justify-content: center; }
+.up-btn { padding: 0.45rem 1.15rem; border-radius: 999px; border: none; background: var(--saffron); color: var(--earth-dark); font-family: 'Jost', sans-serif; font-size: 0.82rem; font-weight: 500; letter-spacing: 0.03em; cursor: pointer; transition: background 0.15s; }
+.up-btn:hover { background: var(--saffron-mid); }
+.up-btn:focus-visible { outline: 3px solid var(--saffron-mid); outline-offset: 2px; }
 .dm-rsvp { display: block; text-align: center; text-decoration: none; margin-top: 0.4rem; }
 .btn-primary.dm-done { background: var(--cream); color: var(--earth-dark); border: 1px solid var(--border-strong); }
 .btn-primary.dm-done:hover { background: var(--cream-dark); }
@@ -230,7 +244,8 @@ transform: translateY(100%);
 <p>Art of Living · Washington DC · Maryland · Virginia</p>
 </header>
 
-<div style="background: #3A2510; padding: 0.5rem 1.2rem; display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; align-items: center;">
+<div style="background: #3A2510; padding: 0.65rem 1.2rem; display: flex; gap: 10px 18px; flex-wrap: wrap; justify-content: center; align-items: center;">
+<div class="up-wrap"><button type="button" class="up-btn" id="upcoming-btn">View upcoming satsangs</button></div>
 <div style="display: flex; align-items: center; gap: 6px;">
 <div style="width: 11px; height: 11px; border-radius: 3px; background: #F5DFA8; border: 1px solid #C8923A; flex-shrink: 0;"></div>
 <span style="font-size: 0.72rem; color: #F5C878;">Available</span>
@@ -374,6 +389,7 @@ let viewYear = MIN_YEAR;
 let viewMonth = MIN_MONTH;
 let lastBooking = {};
 let modalReturnFocus = null;
+let loadState = 'loading';   // 'loading' | 'ok' | 'error'
 
 // ── DATE HELPERS ─────────────────────────────────────────────────
 function dateKey(d) {
@@ -548,13 +564,16 @@ async function fetchData() {
       }
     });
 
+    loadState = 'ok';
   } catch(err) {
+    loadState = 'error';
     console.warn('Could not load data:', err);
   }
 
   document.getElementById('avail-overlay').classList.add('hidden');
   renderCal();
   checkFullyBooked();
+  updateUpcomingButton();
 }
 
 // ── FULLY BOOKED CHECK ───────────────────────────────────────────
@@ -788,39 +807,101 @@ function dmRow(label, fill) {
   return row;
 }
 
-function openDetails(date, trigger) {
-  const info = detailsMap[dateKey(date)];
-  const modal = document.getElementById('detail-modal');
-  const body = document.getElementById('dm-body');
-  document.getElementById('dm-title').textContent = fmtDisplay(date);
-  body.innerHTML = '';
-
-  if (!info) {
-    body.appendChild(dmRow('Details', function(v) { v.textContent = 'Details for this satsang are not available right now.'; }));
-  } else {
-    if (info.time)  body.appendChild(dmRow('Time',      function(v) { v.textContent = info.time; }));
-    if (info.area)  body.appendChild(dmRow('Location',  function(v) { v.textContent = info.area; }));
-    if (info.name)  body.appendChild(dmRow('Hosted by', function(v) { v.textContent = info.name; }));
-    if (info.phone) body.appendChild(dmRow('Phone',     function(v) { v.textContent = formatPhone(info.phone); }));
-    if (info.notes) body.appendChild(dmRow('Notes',     function(v) { appendLinkedText(v, info.notes); }));
-    // Shown only when the sheet's "rsvpform" column has a valid link for this date
-    const rsvpUrl = cleanRsvpUrl(info.rsvp);
-    if (rsvpUrl) {
-      const a = document.createElement('a');
-      a.className = 'btn-primary dm-rsvp';
-      a.href = rsvpUrl;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.textContent = 'RSVP here';
-      body.appendChild(a);
-    }
+// Fills a container with one satsang's details (time, location, host, phone, notes) and the RSVP button if there is a link
+function fillDetails(container, info) {
+  if (info.time)  container.appendChild(dmRow('Time',      function(v) { v.textContent = info.time; }));
+  if (info.area)  container.appendChild(dmRow('Location',  function(v) { v.textContent = info.area; }));
+  if (info.name)  container.appendChild(dmRow('Hosted by', function(v) { v.textContent = info.name; }));
+  if (info.phone) container.appendChild(dmRow('Phone',     function(v) { v.textContent = formatPhone(info.phone); }));
+  if (info.notes) container.appendChild(dmRow('Notes',     function(v) { appendLinkedText(v, info.notes); }));
+  // Shown only when the sheet's "rsvpform" column has a valid link for this date
+  const rsvpUrl = cleanRsvpUrl(info.rsvp);
+  if (rsvpUrl) {
+    const a = document.createElement('a');
+    a.className = 'btn-primary dm-rsvp';
+    a.href = rsvpUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = 'RSVP here';
+    container.appendChild(a);
   }
+}
 
+function showModal(trigger) {
+  const modal = document.getElementById('detail-modal');
   modalReturnFocus = trigger || null;
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
   document.body.style.overflow = 'hidden';
+  document.getElementById('dm-body').scrollTop = 0;
   document.getElementById('dm-close').focus();
+}
+
+function openDetails(date, trigger) {
+  const info = detailsMap[dateKey(date)];
+  const body = document.getElementById('dm-body');
+  document.getElementById('dm-title').textContent = fmtDisplay(date);
+  body.innerHTML = '';
+  body.className = '';
+
+  if (!info) {
+    body.appendChild(dmRow('Details', function(v) { v.textContent = 'Details for this satsang are not available right now.'; }));
+  } else {
+    fillDetails(body, info);
+  }
+  showModal(trigger);
+}
+
+// Upcoming (today and later) satsangs from the sheet, soonest first
+function getUpcoming() {
+  const list = [];
+  Object.keys(detailsMap).forEach(function(k) {
+    const p = k.split('-');
+    const d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+    if (d >= TODAY) list.push({ date: d, info: detailsMap[k] });
+  });
+  list.sort(function(a, b) { return a.date - b.date; });
+  return list;
+}
+
+function updateUpcomingButton() {
+  const n = getUpcoming().length;
+  document.getElementById('upcoming-btn').textContent = n > 0 ? 'View upcoming satsangs (' + n + ')' : 'View upcoming satsangs';
+}
+
+function openUpcoming(trigger) {
+  const body = document.getElementById('dm-body');
+  document.getElementById('dm-title').textContent = 'Upcoming satsangs';
+  body.innerHTML = '';
+  body.className = 'dm-list';
+
+  function message(text) {
+    const p = document.createElement('p');
+    p.className = 'dm-empty';
+    p.textContent = text;
+    body.appendChild(p);
+  }
+
+  const list = getUpcoming();
+  if (loadState === 'loading') {
+    message('Still loading the satsang schedule. Try again in a moment.');
+  } else if (loadState === 'error') {
+    message('Couldn\u2019t load the satsang schedule. Refresh the page and try again.');
+  } else if (!list.length) {
+    message('No upcoming satsangs are scheduled yet. Check back soon.');
+  } else {
+    list.forEach(function(item) {
+      const entry = document.createElement('div');
+      entry.className = 'dm-entry';
+      const heading = document.createElement('h3');
+      heading.className = 'dm-date';
+      heading.textContent = fmtDisplay(item.date);
+      entry.appendChild(heading);
+      fillDetails(entry, item.info);
+      body.appendChild(entry);
+    });
+  }
+  showModal(trigger);
 }
 
 function closeDetails() {
@@ -837,6 +918,7 @@ function wireDetailModal() {
   const modal = document.getElementById('detail-modal');
   document.getElementById('dm-close').addEventListener('click', closeDetails);
   document.getElementById('dm-done').addEventListener('click', closeDetails);
+  document.getElementById('upcoming-btn').addEventListener('click', function() { openUpcoming(this); });
   // Tap/click outside the card closes it
   modal.addEventListener('click', function(e) { if (e.target === modal) closeDetails(); });
   document.addEventListener('keydown', function(e) {
@@ -962,6 +1044,7 @@ async function submitBook() {
   bookedKeys.add(dateKey(selDate));
   bookedWeeks.add(fridayKey(selDate));
   detailsMap[dateKey(selDate)] = { name: name, phone: phone, area: area, time: timeStr, notes: notes, rsvp: '' };
+  updateUpcomingButton();
   selDate = null; selTime = null;
   renderCal();
 
