@@ -208,7 +208,7 @@ font-family: 'Jost', sans-serif;
 .dm-list .dm-row { display: grid; grid-template-columns: 5.2rem minmax(0, 1fr); gap: 0.5rem; margin-bottom: 0.4rem; }
 .dm-list .dm-label { margin: 0; padding-top: 0.2rem; }
 .dm-list .dm-rsvp { margin-top: 0.75rem; padding: 0.6rem; }
-/* "View upcoming satsangs" button in the top bar */
+/* "View upcoming Satsangs" button in the top bar */
 .up-wrap { flex: 0 0 100%; display: flex; justify-content: center; }
 .up-btn { padding: 0.45rem 1.15rem; border-radius: 999px; border: none; background: var(--saffron); color: var(--earth-dark); font-family: 'Jost', sans-serif; font-size: 0.82rem; font-weight: 500; letter-spacing: 0.03em; cursor: pointer; transition: background 0.15s; }
 .up-btn:hover { background: var(--saffron-mid); }
@@ -245,7 +245,7 @@ transform: translateY(100%);
 </header>
 
 <div style="background: #3A2510; padding: 0.65rem 1.2rem; display: flex; gap: 10px 18px; flex-wrap: wrap; justify-content: center; align-items: center;">
-<div class="up-wrap"><button type="button" class="up-btn" id="upcoming-btn">View upcoming satsangs</button></div>
+<div class="up-wrap"><button type="button" class="up-btn" id="upcoming-btn">View upcoming Satsangs</button></div>
 <div style="display: flex; align-items: center; gap: 6px;">
 <div style="width: 11px; height: 11px; border-radius: 3px; background: #F5DFA8; border: 1px solid #C8923A; flex-shrink: 0;"></div>
 <span style="font-size: 0.72rem; color: #F5C878;">Available</span>
@@ -866,12 +866,12 @@ function getUpcoming() {
 
 function updateUpcomingButton() {
   const n = getUpcoming().length;
-  document.getElementById('upcoming-btn').textContent = n > 0 ? 'View upcoming satsangs (' + n + ')' : 'View upcoming satsangs';
+  document.getElementById('upcoming-btn').textContent = n > 0 ? 'View upcoming Satsangs (' + n + ')' : 'View upcoming Satsangs';
 }
 
 function openUpcoming(trigger) {
   const body = document.getElementById('dm-body');
-  document.getElementById('dm-title').textContent = 'Upcoming satsangs';
+  document.getElementById('dm-title').textContent = 'Upcoming Satsangs';
   body.innerHTML = '';
   body.className = 'dm-list';
 
@@ -888,7 +888,7 @@ function openUpcoming(trigger) {
   } else if (loadState === 'error') {
     message('Couldn\u2019t load the satsang schedule. Refresh the page and try again.');
   } else if (!list.length) {
-    message('No upcoming satsangs are scheduled yet. Check back soon.');
+    message('No upcoming Satsangs are scheduled yet. Check back soon.');
   } else {
     list.forEach(function(item) {
       const entry = document.createElement('div');
