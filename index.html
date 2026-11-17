@@ -106,8 +106,12 @@ transition: all 0.15s; position: relative; overflow: hidden; gap: 1px;
 .cal-cell.available { border: 1px solid #C8923A; color: #5A3A0A; cursor: pointer; background: #F5DFA8; font-weight: 400; }
 .cal-cell.available:hover { background: #F0CE80; border-color: #A87030; color: #3A2008; }
 .cal-cell.selected { background: var(--saffron); color: var(--earth-dark); border: 2px solid var(--saffron-mid); font-weight: 600; box-shadow: 0 0 0 3px rgba(232,160,69,0.2); }
-.cal-cell.booked { background: #C8603A; color: #fff; border: 2px solid #A04828; cursor: not-allowed; font-weight: 400; }
+.cal-cell.booked { background: #C8603A; color: #fff; border: 2px solid #A04828; cursor: pointer; font-weight: 400; }
 .cal-cell.booked::after { content: '✓'; position: absolute; top: 1px; right: 3px; font-size: 0.5rem; opacity: 0.8; }
+.cal-cell.booked:hover { background: #B8532F; border-color: #8F3D20; }
+.cal-cell.booked:focus-visible { outline: 3px solid var(--earth-dark); outline-offset: 2px; }
+/* Reserved dates are real <button> elements; reset the browser's button styling */
+button.cal-cell { font-family: 'Jost', sans-serif; font-size: 0.8rem; line-height: 1.15; margin: 0; padding: 0; width: 100%; -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent; }
 .cal-cell.inactive { color: rgba(60,35,15,0.5); font-weight: 400; background: none; cursor: default; }
 .cal-cell.event { background: #B8CCE8; border: 1.5px solid #4A74A8; color: #1A3A5C; cursor: not-allowed; font-weight: 400; }
 .cal-num { font-size: 0.8rem; line-height: 1; }
@@ -126,6 +130,7 @@ padding: 0 2px;
 color: #1A3A5C;
 word-break: break-word;
 }
+.cal-hint { display: none; text-align: center; font-size: 0.72rem; color: var(--muted); margin-top: 0.75rem; letter-spacing: 0.03em; }
 /* ── LEGEND ── */
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 0.85rem; }
 .leg-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--muted); }
@@ -156,6 +161,56 @@ input:focus { border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(232,160,6
 .success-card p { font-size: 0.85rem; color: var(--ink-mid); line-height: 1.75; }
 .wa-btn { display: inline-flex; align-items: center; gap: 8px; padding: 0.65rem 1.4rem; background: #25D366; color: #fff; border-radius: 8px; font-size: 0.82rem; font-weight: 500; cursor: pointer; border: none; margin-top: 0.85rem; font-family: 'Jost', sans-serif; letter-spacing: 0.04em; }
 .wa-btn:hover { background: #1fb85a; }
+/* ── SATSANG DETAILS POPUP ── */
+.dm-backdrop {
+position: fixed; inset: 0; z-index: 1000;
+background: rgba(44,31,14,0.55);
+display: flex; align-items: center; justify-content: center;
+padding: 1rem;
+opacity: 0; visibility: hidden;
+transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.dm-backdrop.open { opacity: 1; visibility: visible; }
+.dm-sheet {
+position: relative; width: 100%; max-width: 400px;
+max-height: 85vh; max-height: 85dvh; overflow-y: auto;
+background: var(--white); border: 1px solid var(--border);
+border-radius: 16px; padding: 1.6rem 1.5rem 1.4rem;
+box-shadow: 0 12px 48px rgba(44,31,14,0.28);
+transform: translateY(14px);
+transition: transform 0.22s ease;
+}
+.dm-backdrop.open .dm-sheet { transform: translateY(0); }
+.dm-grabber { display: none; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: -0.7rem auto 1rem; }
+.dm-close {
+position: absolute; top: 10px; right: 10px; width: 36px; height: 36px;
+border-radius: 50%; border: 1px solid var(--border-strong);
+background: var(--cream); color: var(--earth); font-size: 1.3rem; line-height: 1;
+cursor: pointer; display: flex; align-items: center; justify-content: center;
+font-family: 'Jost', sans-serif;
+}
+.dm-close:hover { background: var(--cream-dark); }
+.dm-close:focus-visible, .btn-primary:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+.dm-title { font-family: 'Cormorant Garamond', serif; font-size: 1.65rem; font-weight: 500; color: var(--earth-dark); line-height: 1.2; padding-right: 2.5rem; }
+.dm-rule { height: 3px; width: 48px; border-radius: 2px; background: linear-gradient(90deg, var(--saffron), var(--rose)); margin: 0.8rem 0 1.1rem; }
+.dm-row { margin-bottom: 0.95rem; }
+.dm-label { font-size: 0.74rem; font-weight: 500; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 0.15rem; }
+.dm-value { font-size: 1rem; font-weight: 400; color: var(--ink); line-height: 1.5; overflow-wrap: anywhere; }
+.dm-value a { color: var(--warm-blue); text-decoration: underline; }
+.dm-done { margin-top: 0.4rem; }
+@media (max-width: 600px) {
+.dm-backdrop { align-items: flex-end; padding: 0; }
+.dm-sheet {
+max-width: none; border-radius: 18px 18px 0 0; border-bottom: none;
+padding-bottom: calc(1.4rem + env(safe-area-inset-bottom, 0px));
+transform: translateY(100%);
+}
+.dm-backdrop.open .dm-sheet { transform: translateY(0); }
+.dm-grabber { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+.dm-backdrop, .dm-sheet { transition: none; }
+}
 @media (max-width: 500px) {
 .form-row { grid-template-columns: 1fr; }
 .time-grid { grid-template-columns: repeat(3,1fr); }
@@ -214,6 +269,7 @@ Please select your preferred date, fill in the details and submit
 <div class="avail-overlay-sub">Please wait a moment</div>
 </div>
 </div>
+<p class="cal-hint" id="cal-hint">Tap a reserved date to see the satsang details.</p>
 </div>
 
 <div class="card" id="form-card" style="display:none;">
@@ -273,6 +329,18 @@ Share with friends via WhatsApp
 </div>
 </main>
 
+<!-- Satsang details popup (centered card on desktop, bottom sheet on mobile) -->
+<div class="dm-backdrop" id="detail-modal" aria-hidden="true">
+<div class="dm-sheet" role="dialog" aria-modal="true" aria-labelledby="dm-title">
+<button type="button" class="dm-close" id="dm-close" aria-label="Close">&times;</button>
+<div class="dm-grabber"></div>
+<h2 class="dm-title" id="dm-title"></h2>
+<div class="dm-rule"></div>
+<div id="dm-body"></div>
+<button type="button" class="btn-primary dm-done" id="dm-done">Close</button>
+</div>
+</div>
+
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxTvzKyWHC6bU_LgNBiFk6KL4_n2vstDHu8Jwsqfqm24D1VqXIcn-P61THFFHQ3V7bPcg/exec';
@@ -291,6 +359,7 @@ const MAX_YEAR = MAX_DATE.getFullYear();
 // ── STATE ───────────────────────────────────────────────────────
 let bookedKeys = new Set();
 let bookedWeeks = new Set();
+let detailsMap = {};   // dateKey -> { name, phone, area, time, notes } for reserved dates
 let scheduleMap = {};
 let lockedMonths = new Set();
 let alternateAnchors = []; // Friday dates that anchor biweekly availability
@@ -299,6 +368,7 @@ let selTime = null;
 let viewYear = MIN_YEAR;
 let viewMonth = MIN_MONTH;
 let lastBooking = {};
+let modalReturnFocus = null;
 
 // ── DATE HELPERS ─────────────────────────────────────────────────
 function dateKey(d) {
@@ -388,6 +458,7 @@ function alternateStatus(d) {
 function init() {
   renderCal();
   updateNavButtons();
+  wireDetailModal();
   fetchData();
 }
 
@@ -403,6 +474,20 @@ async function fetchData() {
       if (!d) return;
       bookedKeys.add(dateKey(d));
       bookedWeeks.add(fridayKey(d));
+    });
+
+    // Details for reserved dates (shown in the popup). Email is never sent by the server.
+    detailsMap = {};
+    (json.details || []).forEach(function(row) {
+      var d = toDate(row.date);
+      if (!d) return;
+      detailsMap[dateKey(d)] = {
+        name:  String(row.name  || '').trim(),
+        phone: String(row.phone || '').trim(),
+        area:  String(row.area  || '').trim(),
+        time:  String(row.time  || '').trim(),
+        notes: String(row.notes || '').trim()
+      };
     });
 
     scheduleMap = {};
@@ -523,6 +608,18 @@ function checkFullyBooked() {
 }
 
 // ── CALENDAR ────────────────────────────────────────────────────
+// Turns a reserved cell into a real <button> that opens the details popup.
+function toBookedButton(cell, date) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = cell.className;
+  while (cell.firstChild) btn.appendChild(cell.firstChild);
+  btn.title = 'View satsang details';
+  btn.setAttribute('aria-label', 'Reserved, ' + fmtDisplay(date) + '. View satsang details.');
+  btn.onclick = function() { openDetails(date, btn); };
+  return btn;
+}
+
 function renderCal() {
   document.getElementById('cal-month-label').textContent = MONTHS[viewMonth] + ' ' + viewYear;
   const grid = document.getElementById('cal-grid');
@@ -538,6 +635,7 @@ function renderCal() {
 
   const firstDay = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  let bookedShown = 0;
 
   for (let i = 0; i < firstDay; i++) {
     const el = document.createElement('div'); el.className = 'cal-cell'; grid.appendChild(el);
@@ -554,7 +652,7 @@ function renderCal() {
     const weekBlocked = isFriSatSun && bookedWeeks.has(fridayKey(thisDate));
     const isSel = selDate && dateKey(selDate) === key;
 
-    const el = document.createElement('div');
+    let el = document.createElement('div');
     const numSpan = document.createElement('span');
     numSpan.className = 'cal-num';
     numSpan.textContent = d;
@@ -569,7 +667,6 @@ function renderCal() {
     } else if (schedEntry && schedEntry.type === 'open') {
       if (isPast || isBooked) {
         el.className = isBooked ? 'cal-cell booked' : 'cal-cell inactive';
-        if (isBooked) el.title = 'Already booked';
       } else {
         el.className = 'cal-cell available';
         el.onclick = (function(dt) { return function() { pickDate(dt); }; })(thisDate);
@@ -583,7 +680,6 @@ function renderCal() {
           el.className = 'cal-cell inactive';
         } else if (isBooked) {
           el.className = 'cal-cell booked';
-          el.title = 'Already booked';
         } else if (weekBlocked) {
           el.className = 'cal-cell inactive';
         } else {
@@ -609,7 +705,6 @@ function renderCal() {
       el.className = 'cal-cell inactive';
     } else if (isBooked) {
       el.className = 'cal-cell booked';
-      el.title = 'Already booked';
     } else if (weekBlocked) {
       el.className = 'cal-cell inactive';
     } else {
@@ -617,8 +712,114 @@ function renderCal() {
       el.onclick = (function(dt) { return function() { pickDate(dt); }; })(thisDate);
     }
 
+    // Reserved dates become tappable buttons that open the details popup
+    if (el.classList.contains('booked')) {
+      el = toBookedButton(el, thisDate);
+      bookedShown++;
+    }
+
     grid.appendChild(el);
   }
+
+  document.getElementById('cal-hint').style.display = bookedShown ? 'block' : 'none';
+}
+
+// ── SATSANG DETAILS POPUP ───────────────────────────────────────
+function formatPhone(p) {
+  const raw = String(p || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  const ten = (digits.length === 11 && digits[0] === '1') ? digits.slice(1) : digits;
+  if (ten.length === 10) return ten.slice(0,3) + '.' + ten.slice(3,6) + '.' + ten.slice(6);
+  return raw;
+}
+
+// Adds text to an element, turning http(s) links into clickable links (built with the DOM, never innerHTML)
+function appendLinkedText(el, text) {
+  const re = /https?:\/\/[^\s<>"']+/gi;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    let url = m[0];
+    const trail = url.match(/[.,;:!?)\]]+$/);
+    if (trail) url = url.slice(0, url.length - trail[0].length);
+    if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const a = document.createElement('a');
+    a.href = url;
+    a.textContent = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    el.appendChild(a);
+    last = m.index + url.length;
+    re.lastIndex = last;
+  }
+  if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+}
+
+function dmRow(label, fill) {
+  const row = document.createElement('div');
+  row.className = 'dm-row';
+  const l = document.createElement('div');
+  l.className = 'dm-label';
+  l.textContent = label;
+  const v = document.createElement('div');
+  v.className = 'dm-value';
+  fill(v);
+  row.appendChild(l);
+  row.appendChild(v);
+  return row;
+}
+
+function openDetails(date, trigger) {
+  const info = detailsMap[dateKey(date)];
+  const modal = document.getElementById('detail-modal');
+  const body = document.getElementById('dm-body');
+  document.getElementById('dm-title').textContent = fmtDisplay(date);
+  body.innerHTML = '';
+
+  if (!info) {
+    body.appendChild(dmRow('Details', function(v) { v.textContent = 'Details for this satsang are not available right now.'; }));
+  } else {
+    if (info.time)  body.appendChild(dmRow('Time',      function(v) { v.textContent = info.time; }));
+    if (info.area)  body.appendChild(dmRow('Location',  function(v) { v.textContent = info.area; }));
+    if (info.name)  body.appendChild(dmRow('Hosted by', function(v) { v.textContent = info.name; }));
+    if (info.phone) body.appendChild(dmRow('Phone',     function(v) { v.textContent = formatPhone(info.phone); }));
+    if (info.notes) body.appendChild(dmRow('Notes',     function(v) { appendLinkedText(v, info.notes); }));
+  }
+
+  modalReturnFocus = trigger || null;
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('dm-close').focus();
+}
+
+function closeDetails() {
+  const modal = document.getElementById('detail-modal');
+  if (!modal.classList.contains('open')) return;
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
+  modalReturnFocus = null;
+}
+
+function wireDetailModal() {
+  const modal = document.getElementById('detail-modal');
+  document.getElementById('dm-close').addEventListener('click', closeDetails);
+  document.getElementById('dm-done').addEventListener('click', closeDetails);
+  // Tap/click outside the card closes it
+  modal.addEventListener('click', function(e) { if (e.target === modal) closeDetails(); });
+  document.addEventListener('keydown', function(e) {
+    if (!modal.classList.contains('open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeDetails(); return; }
+    if (e.key === 'Tab') {
+      // Keep keyboard focus inside the popup while it is open
+      const items = Array.prototype.slice.call(modal.querySelectorAll('button, a[href]'));
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
 }
 
 // ── NAV ─────────────────────────────────────────────────────────
@@ -726,9 +927,10 @@ async function submitBook() {
     return;
   }
 
-  // Mark locally
+  // Mark locally (email is intentionally not kept for display)
   bookedKeys.add(dateKey(selDate));
   bookedWeeks.add(fridayKey(selDate));
+  detailsMap[dateKey(selDate)] = { name: name, phone: phone, area: area, time: timeStr, notes: notes };
   selDate = null; selTime = null;
   renderCal();
 
