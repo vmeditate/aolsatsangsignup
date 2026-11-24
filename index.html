@@ -401,9 +401,11 @@ const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const MIN_MONTH = TODAY.getMonth();
 const MIN_YEAR = TODAY.getFullYear();
-const MAX_DATE = new Date(MIN_YEAR, MIN_MONTH + 2, 1);
-const MAX_MONTH = MAX_DATE.getMonth();
-const MAX_YEAR = MAX_DATE.getFullYear();
+// The calendar shows the current month plus the next MONTHS_AHEAD. If every date in the shown months is
+// taken, the next month opens automatically (and keeps opening, one at a time, while all shown months stay full).
+const MONTHS_AHEAD = 2;
+const MAX_EXTRA_MONTHS = 6;   // safety limit on automatic extension
+let extraMonths = 0;
 
 // ── STATE ───────────────────────────────────────────────────────
 let bookedKeys = new Set();
@@ -412,7 +414,8 @@ let detailsMap = {};   // dateKey -> { name, phone, area, time, notes } for rese
 let scheduleMap = {};
 let eventUrlByLabel = {};   // normalised event name -> first link found for it in the Schedule tab
 let lockedMonths = new Set();
-let alternateAnchors = []; // Friday dates that anchor biweekly availability
+let alternateAnchors = []; // Friday dates that anchor biweekly availability (from the Schedule tab)
+let autoAnchors = [];      // same idea, created automatically for months that open because everything before them is full/locked
 let selDate = null;
 let selTime = null;
 let viewYear = MIN_YEAR;
@@ -467,7 +470,8 @@ function isFSS(dow) { return dow === 5 || dow === 6 || dow === 0; }
 // Scoped to the anchor's month only, with Sat/Sun spill allowed for the last ON-weekend.
 // Precedence: specific scheduleMap entries (open, event, inactive) always override this.
 function alternateStatus(d) {
-  if (alternateAnchors.length === 0) return null;
+  var anchors = alternateAnchors.concat(autoAnchors);
+  if (anchors.length === 0) return null;
   var dow = d.getDay();
   if (!isFSS(dow)) return null;
 
@@ -477,8 +481,8 @@ function alternateStatus(d) {
   else if (dow === 0) thisFri.setDate(d.getDate() - 2);
   thisFri.setHours(0,0,0,0);
 
-  for (var i = 0; i < alternateAnchors.length; i++) {
-    var anchor = new Date(alternateAnchors[i]);
+  for (var i = 0; i < anchors.length; i++) {
+    var anchor = new Date(anchors[i]);
     anchor.setHours(0,0,0,0);
     var anchorMonth = anchor.getMonth();
     var anchorYear  = anchor.getFullYear();
@@ -607,11 +611,118 @@ async function fetchData() {
   }
 
   document.getElementById('avail-overlay').classList.add('hidden');
+  recomputeWindow();
   renderCal();
   checkFullyBooked();
+  updateNavButtons();
 }
 
 // ── FULLY BOOKED CHECK ───────────────────────────────────────────
+// Is there at least one date still open for signup in this month? (same rules the calendar uses)
+function monthHasAvailable(year, month) {
+  if (lockedMonths.has(year + '-' + String(month + 1).padStart(2, '0'))) return false;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const thisDate = new Date(year, month, d);
+    const key = dateKey(thisDate);
+    const dow = thisDate.getDay();
+    const isPast = thisDate < TODAY;
+    const schedEntry = scheduleMap[key];
+    const isBooked = bookedKeys.has(key);
+    const weekBlocked = isFSS(dow) && bookedWeeks.has(fridayKey(thisDate));
+
+    // 'open' label: always available if not past/booked
+    if (schedEntry && schedEntry.type === 'open' && !isPast && !isBooked) return true;
+
+    // 'alternate' pattern: only ON-weekends count as available
+    var altStatus = alternateStatus(thisDate);
+    if (altStatus === 'available' && !isPast && !isBooked && !weekBlocked && !schedEntry) return true;
+    if (altStatus !== null) continue; // alternate governs this date; skip normal check
+
+    if (isFSS(dow) && !isPast && !schedEntry && !isBooked && !weekBlocked) return true;
+  }
+  return false;
+}
+
+// ── MONTH WINDOW (grows automatically when every shown month is full) ──
+function monthStart(offset) { return new Date(MIN_YEAR, MIN_MONTH + offset, 1); }
+
+function lastOpenMonth() {
+  const d = monthStart(MONTHS_AHEAD + extraMonths);
+  return { year: d.getFullYear(), month: d.getMonth() };
+}
+
+// Friday of the weekend a date belongs to (Sat/Sun -> the Friday before; Mon-Thu -> the coming Friday)
+function weekendFriday(d) {
+  const f = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dow = f.getDay();
+  if (dow === 6) f.setDate(f.getDate() - 1);
+  else if (dow === 0) f.setDate(f.getDate() - 2);
+  else if (dow !== 5) f.setDate(f.getDate() + (5 - dow));
+  return f;
+}
+
+// First "on" Friday of a month that opens automatically: the every-second-weekend cycle continues from the
+// last reserved weekend before that month. If someone has already reserved a weekend inside the month, that
+// reservation fixes the cycle instead (so a reserved date never ends up off the cycle).
+// Returns null when nothing has been reserved yet (there is no cycle to continue).
+function autoAnchorFor(year, month) {
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 1);
+  let before = null, inside = null;
+  bookedKeys.forEach(function(k) {
+    const se = scheduleMap[k];
+    if (se && se.type === 'open') return;            // dates opened by hand do not set the cycle
+    const p = k.split('-');
+    const d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+    if (d < start) { if (!before || d > before) before = d; }
+    else if (d < end) { if (!inside || d < inside) inside = d; }
+  });
+  const ref = inside || before;
+  if (!ref) return null;
+  const f = weekendFriday(ref);
+  if (inside) {
+    while (new Date(f.getFullYear(), f.getMonth(), f.getDate() - 14) >= start) f.setDate(f.getDate() - 14);
+    while (f < start) f.setDate(f.getDate() + 14);
+  } else {
+    f.setDate(f.getDate() + 14);                     // the weekend two weeks after the last reserved one...
+    while (f < start) f.setDate(f.getDate() + 14);   // ...and every second weekend after that
+  }
+  return f;
+}
+
+// If no date can be reserved anywhere in the months shown (all full, or locked), open the next month.
+// A new month opens with every second weekend available. Repeats while nothing is available.
+// A month you locked, or one that has its own "alternate" row in the Schedule tab, is left exactly as you set it.
+function recomputeWindow() {
+  autoAnchors = [];
+  let extra = 0;
+  while (extra < MAX_EXTRA_MONTHS) {
+    let anyOpen = false;
+    for (let i = 0; i <= MONTHS_AHEAD + extra && !anyOpen; i++) {
+      const dt = monthStart(i);
+      if (monthHasAvailable(dt.getFullYear(), dt.getMonth())) anyOpen = true;
+    }
+    if (anyOpen) break;
+
+    const nx = monthStart(MONTHS_AHEAD + extra + 1);
+    const ny = nx.getFullYear(), nm = nx.getMonth();
+    const locked = lockedMonths.has(ny + '-' + String(nm + 1).padStart(2, '0'));
+    const hasOwnPattern = alternateAnchors.some(function(a) { return a.getFullYear() === ny && a.getMonth() === nm; });
+    if (!locked && !hasOwnPattern) {
+      const anchor = autoAnchorFor(ny, nm);
+      if (!anchor) break;                            // nothing reserved yet: no cycle to continue
+      autoAnchors.push(anchor);
+    }
+    extra++;
+  }
+  extraMonths = extra;
+  // If the window shrank (e.g. a date was freed up) while viewing the last month, step back
+  const last = lastOpenMonth();
+  if (viewYear * 12 + viewMonth > last.year * 12 + last.month) { viewYear = last.year; viewMonth = last.month; }
+}
+
 function checkFullyBooked() {
   const msg = document.getElementById('cal-status-msg');
   const subtitle = document.getElementById('cal-subtitle');
@@ -624,37 +735,7 @@ function checkFullyBooked() {
     return;
   }
 
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  let hasAvailable = false;
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const thisDate = new Date(viewYear, viewMonth, d);
-    const key = dateKey(thisDate);
-    const dow = thisDate.getDay();
-    const isPast = thisDate < TODAY;
-    const schedEntry = scheduleMap[key];
-    const isBooked = bookedKeys.has(key);
-    const weekBlocked = isFSS(dow) && bookedWeeks.has(fridayKey(thisDate));
-
-    // 'open' label: always available if not past/booked
-    if (schedEntry && schedEntry.type === 'open' && !isPast && !isBooked) {
-      hasAvailable = true;
-      break;
-    }
-
-    // 'alternate' pattern: only ON-weekends count as available
-    var altStatus = alternateStatus(thisDate);
-    if (altStatus === 'available' && !isPast && !isBooked && !weekBlocked && !schedEntry) {
-      hasAvailable = true;
-      break;
-    }
-    if (altStatus !== null) continue; // alternate governs this date; skip normal check
-
-    if (isFSS(dow) && !isPast && !schedEntry && !isBooked && !weekBlocked) {
-      hasAvailable = true;
-      break;
-    }
-  }
+  const hasAvailable = monthHasAvailable(viewYear, viewMonth);
 
   if (!hasAvailable) {
     msg.textContent = 'All slots for this month are currently full.';
@@ -1062,7 +1143,8 @@ function wireDetailModal() {
 // ── NAV ─────────────────────────────────────────────────────────
 function updateNavButtons() {
   document.getElementById('cal-prev').disabled = (viewMonth === MIN_MONTH && viewYear === MIN_YEAR);
-  document.getElementById('cal-next').disabled = (viewMonth === MAX_MONTH && viewYear === MAX_YEAR);
+  const last = lastOpenMonth();
+  document.getElementById('cal-next').disabled = (viewMonth === last.month && viewYear === last.year);
 }
 
 function calNav(dir) {
@@ -1070,7 +1152,8 @@ function calNav(dir) {
   if (viewMonth > 11) { viewMonth = 0; viewYear++; }
   if (viewMonth < 0) { viewMonth = 11; viewYear--; }
   if (viewYear < MIN_YEAR || (viewYear === MIN_YEAR && viewMonth < MIN_MONTH)) { viewMonth = MIN_MONTH; viewYear = MIN_YEAR; }
-  if (viewYear > MAX_YEAR || (viewYear === MAX_YEAR && viewMonth > MAX_MONTH)) { viewMonth = MAX_MONTH; viewYear = MAX_YEAR; }
+  const last = lastOpenMonth();
+  if (viewYear > last.year || (viewYear === last.year && viewMonth > last.month)) { viewMonth = last.month; viewYear = last.year; }
   renderCal();
   checkFullyBooked();
   updateNavButtons();
@@ -1169,6 +1252,8 @@ async function submitBook() {
   bookedWeeks.add(fridayKey(selDate));
   detailsMap[dateKey(selDate)] = { name: name, phone: phone, area: area, time: timeStr, notes: notes, rsvp: '' };
   selDate = null; selTime = null;
+  recomputeWindow();
+  updateNavButtons();
   renderCal();
 
   document.getElementById('form-card').style.display = 'none';
